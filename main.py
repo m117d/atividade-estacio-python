@@ -1,6 +1,6 @@
 import sqlite3
 import customtkinter as ctk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 
 # Funções do banco de dados
 def criar_tabela():
@@ -61,9 +61,27 @@ def abrir_criar_pessoa():
         criar_pessoa(nome_entry.get(), idade_entry.get(), cpf_entry.get())
         janela_criar.destroy()
 
+    ctk.CTkButton(janela_criar, text="OK", command=on_ok).pack()
+
 def abrir_buscar_pessoa():
     janela_buscar = ctk.CTkToplevel(app)
     janela_buscar.geometry("300x200")
+
+    ctk.CTkLabel(janela_buscar, text="Digite o nome:").pack()
+    nome_entry = ctk.CTkEntry(janela_buscar)
+    nome_entry.pack()
+
+    def on_ok():
+        resultado = buscar_pessoa(nome_entry.get())
+        texto_resultado.set("\n".join(f"Nome: {nome}\nIdade: {idade}\nCPF: {cpf}" for nome, idade, cpf in resultado))
+        janela_buscar.destroy()
+
+    ctk.CTkButton(janela_buscar, text="OK", command=on_ok).pack()
+
+def atualizar_resultados():
+    pessoas = listar_pessoas()
+    resultado_formatado = "\n\n".join(f"Nome: {nome}\nIdade: {idade}\nCPF: {cpf}" for nome, idade, cpf in pessoas)
+    texto_resultado.set(resultado_formatado)
 
 def abrir_excluir_pessoa():
     janela_excluir = ctk.CTkToplevel(app)
@@ -88,15 +106,15 @@ def abrir_alterar_dado():
 
     def on_select(pessoa):
         campo = simpledialog.askstring("Alterar", "Qual campo deseja alterar? (nome, idade, cpf)")
-        if campo:
+        if campo and campo in ["nome", "idade", "cpf"]:
             novo_valor = simpledialog.askstring("Alterar", f"Digite o novo valor para {campo}:")
             if novo_valor:
                 alterar_dado(pessoa[0], campo, novo_valor)
                 janela_alterar.destroy()
+                atualizar_resultados()
+        else:
+            messagebox.showerror("Erro", "Campo inválido. Escolha entre 'nome', 'idade' ou 'cpf'.")
 
-def atualizar_resultados():
-    pessoas = listar_pessoas()
-    texto_resultado.set(str(pessoas))
 
 # Interface principal
 app = ctk.CTk()
@@ -115,7 +133,7 @@ ctk.CTkButton(frame_esquerda, text="Buscar Pessoa", command=abrir_buscar_pessoa)
 ctk.CTkButton(frame_esquerda, text="Excluir Pessoa", command=abrir_excluir_pessoa).pack(fill="x")
 ctk.CTkButton(frame_esquerda, text="Alterar Dado", command=abrir_alterar_dado).pack(fill="x")
 
-resultado_label = ctk.CTkLabel(frame_direita, textvariable=texto_resultado, anchor="nw", justify="left")
+resultado_label = ctk.CTkLabel(frame_direita, textvariable=texto_resultado, anchor="center", justify="center")
 resultado_label.pack(fill="both", expand=True)
 ctk.CTkButton(frame_direita, text="Atualizar", command=atualizar_resultados).pack(fill="x")
 
