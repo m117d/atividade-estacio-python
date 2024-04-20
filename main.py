@@ -2,43 +2,41 @@ import sqlite3
 import customtkinter as ctk
 from tkinter import messagebox, simpledialog, ttk
 
+# Conexão com o banco de dados
+def conectar_banco():
+    conector = sqlite3.connect("bancodedados.db")
+    return conector
+
+def fechar_conexao(conector):
+    conector.commit()
+    conector.close()
+
 # Funções do banco de dados
-def criar_tabela():
-    with sqlite3.connect("bancodedados.db") as conector:
-        cursor = conector.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS pessoa (nome TEXT, idade INTEGER, cpf TEXT)")
-        conector.commit()
+def criar_tabela(conector):
+    cursor = conector.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS pessoa (nome TEXT, idade INTEGER, cpf TEXT)")
 
-def criar_pessoa(nome, idade, cpf):
-    with sqlite3.connect("bancodedados.db") as conector:
-        cursor = conector.cursor()
-        cursor.execute("INSERT INTO pessoa(nome, idade, cpf) VALUES (?, ?, ?)", (nome, idade, cpf))
-        conector.commit()
+def criar_pessoa(conector, nome, idade, cpf):
+    cursor = conector.cursor()
+    cursor.execute("INSERT INTO pessoa(nome, idade, cpf) VALUES (?, ?, ?)", (nome, idade, cpf))
 
-def buscar_pessoa(nome):
-    with sqlite3.connect("bancodedados.db") as conector:
-        cursor = conector.cursor()
-        cursor.execute("SELECT * FROM pessoa WHERE nome = ?", (nome,))
-        return cursor.fetchall()
+def buscar_pessoa(conector, nome):
+    cursor = conector.cursor()
+    cursor.execute("SELECT * FROM pessoa WHERE nome = ?", (nome,))
+    return cursor.fetchall()
+def excluir_pessoa(conector, nome):
+    cursor = conector.cursor()
+    cursor.execute("DELETE FROM pessoa WHERE nome = ?", (nome,))
 
-def excluir_pessoa(nome):
-    with sqlite3.connect("bancodedados.db") as conector:
-        cursor = conector.cursor()
-        cursor.execute("DELETE FROM pessoa WHERE nome = ?", (nome,))
-        conector.commit()
+def alterar_dado(conector, nome, campo, novo_valor):
+    cursor = conector.cursor()
+    query = f"UPDATE pessoa SET {campo} = ? WHERE nome = ?"
+    cursor.execute(query, (novo_valor, nome))
 
-def alterar_dado(nome, campo, novo_valor):
-    with sqlite3.connect("bancodedados.db") as conector:
-        cursor = conector.cursor()
-        query = f"UPDATE pessoa SET {campo} = ? WHERE nome = ?"
-        cursor.execute(query, (novo_valor, nome))
-        conector.commit()
-
-def listar_pessoas():
-    with sqlite3.connect("bancodedados.db") as conector:
-        cursor = conector.cursor()
-        cursor.execute("SELECT * FROM pessoa")
-        return cursor.fetchall()
+def listar_pessoas(conector):
+    cursor = conector.cursor()
+    cursor.execute("SELECT * FROM pessoa")
+    return cursor.fetchall()
 
 # Funções da interface gráfica
 def abrir_criar_pessoa():
@@ -58,11 +56,12 @@ def abrir_criar_pessoa():
     cpf_entry.pack()
 
     def on_ok():
-        criar_pessoa(nome_entry.get(), idade_entry.get(), cpf_entry.get())
+        conector = conectar_banco()
+        criar_pessoa(conector, nome_entry.get(), idade_entry.get(), cpf_entry.get())
+        fechar_conexao(conector)
         janela_criar.destroy()
 
     ctk.CTkButton(janela_criar, text="OK", command=on_ok).pack()
-
 def abrir_buscar_pessoa():
     janela_buscar = ctk.CTkToplevel(app)
     janela_buscar.geometry("300x200")
@@ -79,9 +78,12 @@ def abrir_buscar_pessoa():
     ctk.CTkButton(janela_buscar, text="OK", command=on_ok).pack()
 
 def atualizar_resultados():
-    pessoas = listar_pessoas()
+    conector = conectar_banco()
+    pessoas = listar_pessoas(conector)
+    fechar_conexao(conector)
     resultado_formatado = "\n\n".join(f"Nome: {nome}\nIdade: {idade}\nCPF: {cpf}" for nome, idade, cpf in pessoas)
     texto_resultado.set(resultado_formatado)
+
 
 def abrir_excluir_pessoa():
     janela_excluir = ctk.CTkToplevel(app)
@@ -100,21 +102,22 @@ def abrir_alterar_dado():
     janela_alterar = ctk.CTkToplevel(app)
     janela_alterar.geometry("300x200")
 
-    pessoas = listar_pessoas()
-    for pessoa in pessoas:
-        ctk.CTkButton(janela_alterar, text=str(pessoa), command=lambda p=pessoa: on_select(p)).pack()
+    conector = conectar_banco()
 
-    def on_select(pessoa):
+    pessoas = listar_pessoas(conector)
+    for pessoa in pessoas:
+        ctk.CTkButton(janela_alterar, text=str(pessoa), command=lambda p=pessoa: on_select(p, conector)).pack()
+
+    def on_select(pessoa, conector):
         campo = simpledialog.askstring("Alterar", "Qual campo deseja alterar? (nome, idade, cpf)")
         if campo and campo in ["nome", "idade", "cpf"]:
             novo_valor = simpledialog.askstring("Alterar", f"Digite o novo valor para {campo}:")
             if novo_valor:
-                alterar_dado(pessoa[0], campo, novo_valor)
+                alterar_dado(conector, pessoa[0], campo, novo_valor)  # Passar a conexão para alterar_dado
                 janela_alterar.destroy()
                 atualizar_resultados()
         else:
             messagebox.showerror("Erro", "Campo inválido. Escolha entre 'nome', 'idade' ou 'cpf'.")
-
 
 # Interface principal
 app = ctk.CTk()
